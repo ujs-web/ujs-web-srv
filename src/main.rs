@@ -186,14 +186,11 @@ async fn handle_js_script(
     });
 
     // 等待 JS 调用 op_send_response
-    let js_res = match rx.await {
-        Ok(res) => res,
-        Err(_) => JsResponse {
-            status: 500,
-            headers: HashMap::new(),
-            body: "JS failed to send response (did you forget to call Deno.core.ops.op_send_response?)".to_string(),
-        },
-    };
+    let js_res = rx.await.unwrap_or_else(|_| JsResponse {
+        status: 500,
+        headers: HashMap::new(),
+        body: "JS failed to send response (did you forget to call Deno.core.ops.op_send_response?)".to_string(),
+    });
 
     let mut res_builder = axum::response::Response::builder().status(js_res.status);
 
