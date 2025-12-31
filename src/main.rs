@@ -6,11 +6,73 @@ use axum::{
     routing::any,
     Router,
 };
-use deno_core::{extension, op2, JsRuntime, OpState, RuntimeOptions};
+use deno_core::{extension, op2, JsRuntime, OpState, RuntimeOptions, ModuleLoader, ModuleSource, ModuleSourceCode, ModuleSpecifier, ModuleType, ResolutionKind, ModuleLoadOptions, ModuleLoadResponse};
+use deno_ast::{MediaType, ParseParams};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tokio::fs;
+use std::rc::Rc;
+use std::sync::Arc;
 use tokio::sync::oneshot;
+
+struct TsModuleLoader;
+
+impl ModuleLoader for TsModuleLoader {
+    fn resolve(
+        &self,
+        specifier: &str,
+        referrer: &str,
+        _kind: ResolutionKind,
+    ) -> Result<ModuleSpecifier, deno_error::JsErrorBox> {
+        deno_core::resolve_import(specifier, referrer).map_err(deno_error::JsErrorBox::from_err)
+    }
+
+    fn load(
+        &self,
+        module_specifier: &ModuleSpecifier,
+        _maybe_referrer: Option<&deno_core::ModuleLoadReferrer>,
+        _options: ModuleLoadOptions,
+    ) -> ModuleLoadResponse {
+        let module_specifier = module_specifier.clone();
+        let fut = async move {
+            let path = module_specifier.to_file_path().map_err(|_| {
+                deno_error::JsErrorBox::generic("Only file:// URLs are supported")
+            })?;
+
+            let media_type = MediaType::from_path(&path);
+            let code = std::fs::read_to_string(&path).map_err(deno_error::JsErrorBox::from_err)?;
+
+            let (transpiled_code, module_type) = match media_type {
+                MediaType::TypeScript
+                | MediaType::Mts
+                | MediaType::Cts
+                | MediaType::Jsx
+                | MediaType::Tsx => {
+                    let parsed = deno_ast::parse_module(ParseParams {
+                        specifier: module_specifier.clone(),
+                        text: Arc::from(code),
+                        media_type,
+                        capture_tokens: false,
+                        scope_analysis: false,
+                        maybe_syntax: None,
+                    }).map_err(deno_error::JsErrorBox::from_err)?;
+                    let transpiled = parsed.transpile(&deno_ast::TranspileOptions {
+                        ..Default::default()
+                    }, &deno_ast::TranspileModuleOptions::default(), &deno_ast::EmitOptions::default()).map_err(deno_error::JsErrorBox::from_err)?.into_source();
+                    (transpiled.text, ModuleType::JavaScript)
+                }
+                _ => (code, ModuleType::JavaScript),
+            };
+
+            Ok(ModuleSource::new(
+                module_type,
+                ModuleSourceCode::String(transpiled_code.clone().into()),
+                &module_specifier,
+                None,
+            ))
+        };
+        ModuleLoadResponse::Async(Box::pin(fut))
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct JsRequest {
@@ -77,10 +139,9 @@ async fn handle_js_script(
 
     // 脚本文件的实际路径
     let full_script_path = format!("./scripts/{}", script_path);
-    let script_code = match fs::read_to_string(&full_script_path).await {
-        Ok(code) => code,
-        Err(_) => return (StatusCode::NOT_FOUND, "Script not found").into_response(),
-    };
+    if !std::path::Path::new(&full_script_path).exists() {
+        return (StatusCode::NOT_FOUND, "Script not found").into_response();
+    }
 
     // 执行脚本并支持异步
     let (tx, rx) = oneshot::channel();
@@ -88,6 +149,7 @@ async fn handle_js_script(
     std::thread::spawn(move || {
         let mut runtime = JsRuntime::new(RuntimeOptions {
             extensions: vec![web_runtime::init()],
+            module_loader: Some(Rc::new(TsModuleLoader)),
             ..Default::default()
         });
 
@@ -98,18 +160,28 @@ async fn handle_js_script(
         let init_code = format!("globalThis.request = {};", req_json);
         runtime.execute_script("<init>", init_code).unwrap();
 
-        // 运行事件循环以支持 async/await
+        // 运行事件循环以支持 async/await 和 ES 模块
         let tokio_runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap();
         
         tokio_runtime.block_on(async {
-            // 执行脚本
-            let script_name: &'static str = Box::leak(script_path.into_boxed_str());
-            runtime.execute_script(script_name, script_code).unwrap();
+            // 解析脚本路径为 ModuleSpecifier
+            let cwd = std::env::current_dir().unwrap();
+            let specifier = deno_core::resolve_path(&full_script_path, &cwd).unwrap();
 
+            // 加载主模块
+            let mod_id = runtime.load_main_es_module(&specifier).await.unwrap();
+
+            // 执行模块
+            let evaluation = runtime.mod_evaluate(mod_id);
+            
+            // 运行事件循环直到模块执行完成
             runtime.run_event_loop(Default::default()).await.unwrap();
+
+            // 检查评估结果（如果模块有 top-level await，可能在这里完成）
+            evaluation.await.unwrap();
         });
     });
 
