@@ -27,9 +27,14 @@ struct JsResponse {
     body: String,
 }
 
+#[op2(async)]
+async fn op_delay(ms: u32) {
+    tokio::time::sleep(std::time::Duration::from_millis(ms as u64)).await;
+}
+
 extension!(
     web_runtime,
-    ops = [op_log, op_send_response],
+    ops = [op_log, op_send_response, op_delay],
 );
 
 #[op2(fast)]
@@ -77,10 +82,10 @@ async fn handle_js_script(
         Err(_) => return (StatusCode::NOT_FOUND, "Script not found").into_response(),
     };
 
+    // 执行脚本并支持异步
     let (tx, rx) = oneshot::channel();
-
-    // 在同步代码块中执行 JS，确保 JsRuntime 不跨越 await
-    {
+    
+    std::thread::spawn(move || {
         let mut runtime = JsRuntime::new(RuntimeOptions {
             extensions: vec![web_runtime::init()],
             ..Default::default()
@@ -93,15 +98,20 @@ async fn handle_js_script(
         let init_code = format!("globalThis.request = {};", req_json);
         runtime.execute_script("<init>", init_code).unwrap();
 
-        // 执行脚本
-        if let Err(e) = runtime.execute_script(script_path, script_code) {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("JS Error: {}", e),
-            )
-                .into_response();
-        }
-    }
+        // 运行事件循环以支持 async/await
+        let tokio_runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        
+        tokio_runtime.block_on(async {
+            // 执行脚本
+            let script_name: &'static str = Box::leak(script_path.into_boxed_str());
+            runtime.execute_script(script_name, script_code).unwrap();
+
+            runtime.run_event_loop(Default::default()).await.unwrap();
+        });
+    });
 
     // 等待 JS 调用 op_send_response
     let js_res = match rx.await {
