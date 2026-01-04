@@ -1,4 +1,5 @@
 mod js_bridge;
+mod db_bridge;
 
 use axum::{Router, routing::any};
 
