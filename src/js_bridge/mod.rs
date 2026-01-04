@@ -24,6 +24,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_js_request_methods() {
+        use crate::db_bridge::establish_connection_pool;
+        use axum::extract::State;
+        let pool = establish_connection_pool();
         let req = Request::builder()
             .method("POST")
             .uri("/js/test_request.js")
@@ -31,7 +34,7 @@ mod tests {
             .body(Body::from("hello world"))
             .unwrap();
 
-        let response = handle_js_script(Path("test_request.js".to_string()), req).await;
+        let response = handle_js_script(State(pool), Path("test_request.js".to_string()), req).await;
         let response = response.into_response();
 
         assert_eq!(response.status(), StatusCode::OK);
@@ -52,13 +55,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_js_async_with_threadpool() {
+        use crate::db_bridge::establish_connection_pool;
+        use axum::extract::State;
+        let pool = establish_connection_pool();
         let req = Request::builder()
             .method("GET")
             .uri("/js/async_test.js")
             .body(Body::empty())
             .unwrap();
 
-        let response = handle_js_script(Path("async_test.js".to_string()), req).await;
+        let response = handle_js_script(State(pool), Path("async_test.js".to_string()), req).await;
         let response = response.into_response();
 
         assert_eq!(response.status(), StatusCode::OK);
@@ -74,13 +80,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_script_not_found() {
+        use crate::db_bridge::establish_connection_pool;
+        use axum::extract::State;
+        let pool = establish_connection_pool();
         let req = Request::builder()
             .method("GET")
             .uri("/js/non_existent.js")
             .body(Body::empty())
             .unwrap();
 
-        let response = handle_js_script(Path("non_existent.js".to_string()), req).await;
+        let response = handle_js_script(State(pool), Path("non_existent.js".to_string()), req).await;
         let response = response.into_response();
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
@@ -107,6 +116,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_ts_transpilation() {
+        use crate::db_bridge::establish_connection_pool;
+        use axum::extract::State;
+        let pool = establish_connection_pool();
         // 创建一个临时 TS 文件进行测试
         let ts_code = r#"
             interface User { name: string; }
@@ -127,7 +139,7 @@ mod tests {
             .body(Body::empty())
             .unwrap();
 
-        let response = handle_js_script(Path("test_ts_transpile.ts".to_string()), req).await;
+        let response = handle_js_script(State(pool), Path("test_ts_transpile.ts".to_string()), req).await;
         let response = response.into_response();
 
         assert_eq!(response.status(), StatusCode::OK);
@@ -159,6 +171,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_js_syntax_error_handling() {
+        use crate::db_bridge::establish_connection_pool;
+        use axum::extract::State;
+        let pool = establish_connection_pool();
         let bad_code = "this is not javascript";
         std::fs::write("./scripts/bad_syntax.js", bad_code).unwrap();
 
@@ -168,7 +183,7 @@ mod tests {
             .body(Body::empty())
             .unwrap();
 
-        let response = handle_js_script(Path("bad_syntax.js".to_string()), req).await;
+        let response = handle_js_script(State(pool), Path("bad_syntax.js".to_string()), req).await;
         let response = response.into_response();
 
         // 目前的代码在 JS 错误时会打印日志并可能超时，返回 500
@@ -202,5 +217,35 @@ mod tests {
         let result = runtime.execute_script("<test>", code);
         // 如果没有抛出错误，说明测试通过
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_js_sql_operations() {
+        use crate::db_bridge::establish_connection_pool;
+        use axum::extract::State;
+
+        let pool = establish_connection_pool();
+        let req = Request::builder()
+            .method("GET")
+            .uri("/js/db_test.js")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = handle_js_script(State(pool), Path("db_test.js".to_string()), req).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body_bytes = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let body_str = String::from_utf8_lossy(&body_bytes);
+        let json: serde_json::Value = serde_json::from_str(&body_str).unwrap();
+
+        assert_eq!(json["setup"], "ok");
+        assert_eq!(json["inserted"], 1);
+        assert_eq!(json["queried"][0]["res1"], "js_user");
+        assert_eq!(json["updated_email"], "updated@example.com");
+        assert_eq!(json["deleted"], "ok");
     }
 }

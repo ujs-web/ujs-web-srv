@@ -1,12 +1,17 @@
+use crate::db_bridge::DbPool;
 use crate::js_bridge::executor::{RuntimeConfig, ScriptExecutor};
 use crate::js_bridge::models::{JsRequest, JsResponse};
 use axum::{
-    extract::{Path, Request},
+    extract::{Path, Request, State},
     response::IntoResponse,
 };
 use std::collections::HashMap;
 
-pub async fn handle_js_script(Path(script_name): Path<String>, req: Request) -> impl IntoResponse {
+pub async fn handle_js_script(
+    State(pool): State<DbPool>,
+    Path(script_name): Path<String>,
+    req: Request,
+) -> impl IntoResponse {
     let (parts, body) = req.into_parts();
     let method = parts.method.to_string();
     let path = parts.uri.path().to_string();
@@ -30,6 +35,7 @@ pub async fn handle_js_script(Path(script_name): Path<String>, req: Request) -> 
     let config = RuntimeConfig {
         script_path: format!("./scripts/{}", script_name),
         request: js_req,
+        db_pool: pool,
     };
 
     ScriptExecutor::execute(config).await.into_response()

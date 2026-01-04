@@ -1,3 +1,4 @@
+use crate::db_bridge::DbPool;
 use crate::js_bridge::loader::TsModuleLoader;
 use crate::js_bridge::models::{JsRequest, JsResponse};
 use crate::js_bridge::ops::web_runtime;
@@ -8,6 +9,7 @@ use tokio::sync::oneshot;
 pub struct RuntimeConfig {
     pub script_path: String,
     pub request: JsRequest,
+    pub db_pool: DbPool,
 }
 
 pub struct ScriptExecutor;
@@ -30,6 +32,7 @@ impl ScriptExecutor {
 
             runtime.op_state().borrow_mut().put(tx);
             runtime.op_state().borrow_mut().put(config.request);
+            runtime.op_state().borrow_mut().put(config.db_pool);
 
             // 将请求对象注入 JS 环境，使用方法访问
             let init_code = r#"
@@ -39,6 +42,10 @@ impl ScriptExecutor {
                     headers: () => Deno.core.ops.op_req_headers(),
                     body: () => Deno.core.ops.op_req_body(),
                     header: (key) => Deno.core.ops.op_req_get_header(key),
+                };
+                globalThis.db = {
+                    execute: (sql) => Deno.core.ops.op_sql_execute(sql),
+                    query: (sql) => Deno.core.ops.op_sql_query(sql),
                 };
             "#;
             if let Err(e) = runtime.execute_script("<init>", init_code) {
