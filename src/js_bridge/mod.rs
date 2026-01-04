@@ -240,12 +240,47 @@ mod tests {
             .await
             .unwrap();
         let body_str = String::from_utf8_lossy(&body_bytes);
+        println!("Response body: {}", body_str);
         let json: serde_json::Value = serde_json::from_str(&body_str).unwrap();
 
         assert_eq!(json["setup"], "ok");
         assert_eq!(json["inserted"], 1);
-        assert_eq!(json["queried"][0]["res1"], "js_user");
+        // 注意：现在返回的是原始列名，不再是 res1
+        assert_eq!(json["queried"][0]["name"], "js_user");
+        assert_eq!(json["queried"][0]["res2"], "js@example.com");
         assert_eq!(json["updated_email"], "updated@example.com");
         assert_eq!(json["deleted"], "ok");
+    }
+
+    #[tokio::test]
+    async fn test_js_sql_dynamic_row() {
+        use crate::db_bridge::establish_connection_pool;
+        use axum::extract::State;
+
+        let pool = establish_connection_pool();
+        let req = Request::builder()
+            .method("GET")
+            .uri("/js/db_dynamic_test.js")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = handle_js_script(State(pool), Path("db_dynamic_test.js".to_string()), req).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body_bytes = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let body_str = String::from_utf8_lossy(&body_bytes);
+        println!("Response body: {}", body_str);
+        let json: serde_json::Value = serde_json::from_str(&body_str).unwrap();
+
+        assert_eq!(json["count"], 2);
+        assert_eq!(json["first_row"]["name"], "Alice");
+        assert_eq!(json["first_row"]["age"], 30); // 确保是数字类型
+        assert_eq!(json["first_row"]["metadata"], "developer");
+        assert_eq!(json["subset"][1]["name"], "Bob");
+        assert!(json["subset"][1]["age"].is_null()); // subset 不包含 age
     }
 }

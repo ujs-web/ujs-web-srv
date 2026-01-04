@@ -1,9 +1,59 @@
 use crate::db_bridge::DbPool;
 use crate::js_bridge::models::{JsRequest, JsResponse};
 use diesel::prelude::*;
+use diesel::pg::Pg;
+use diesel::row::{NamedRow, Row, Field};
 use deno_core::{extension, op2, OpState};
 use std::collections::HashMap;
 use tokio::sync::oneshot;
+use serde_json::{Map, Value};
+
+#[derive(serde::Serialize)]
+pub struct DynamicRow(pub Map<String, Value>);
+
+impl diesel::deserialize::QueryableByName<Pg> for DynamicRow {
+    fn build<'a>(row: &impl NamedRow<'a, Pg>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        use diesel::deserialize::FromSql;
+        let mut map = Map::new();
+        let column_count = row.field_count();
+
+        for i in 0..column_count {
+            let field = Row::get(row, i).ok_or_else(|| "Failed to get field")?;
+            let name = field.field_name().ok_or_else(|| "Failed to get column name")?;
+            
+            let value = if field.is_null() {
+                Value::Null
+            } else {
+                let raw_value = field.value().unwrap();
+                // 尝试多种类型，通过顺序保证优先匹配
+                // 在 PostgreSQL 二进制协议下，整数的长度是固定的
+                if let Ok(v) = FromSql::<diesel::sql_types::Integer, Pg>::from_sql(raw_value) {
+                    let v: i32 = v;
+                    Value::Number(serde_json::Number::from(v))
+                } else if let Ok(v) = FromSql::<diesel::sql_types::Text, Pg>::from_sql(raw_value) {
+                    let v: String = v;
+                    Value::String(v)
+                } else if let Ok(v) = FromSql::<diesel::sql_types::BigInt, Pg>::from_sql(raw_value) {
+                    let v: i64 = v;
+                    Value::Number(serde_json::Number::from(v))
+                } else if let Ok(v) = FromSql::<diesel::sql_types::Double, Pg>::from_sql(raw_value) {
+                    let v: f64 = v;
+                    serde_json::Number::from_f64(v).map(Value::Number).unwrap_or(Value::Null)
+                } else if let Ok(v) = FromSql::<diesel::sql_types::Bool, Pg>::from_sql(raw_value) {
+                    let v: bool = v;
+                    Value::Bool(v)
+                } else {
+                    String::from_utf8(raw_value.as_bytes().to_vec())
+                        .map(Value::String)
+                        .unwrap_or_else(|_| Value::String(format!("Binary: {} bytes", raw_value.as_bytes().len())))
+                }
+            };
+            
+            map.insert(name.to_string(), value);
+        }
+        Ok(DynamicRow(map))
+    }
+}
 
 #[op2(fast)]
 pub fn op_sql_execute(state: &mut OpState, #[string] sql: String) -> u32 {
@@ -20,23 +70,8 @@ pub fn op_sql_query(state: &mut OpState, #[string] sql: String) -> serde_json::V
     let pool = state.borrow::<DbPool>();
     let mut conn = pool.get().expect("Failed to get connection from pool");
     
-    // 为了支持动态查询结果，我们使用一个局部定义的结构体，
-    // 虽然它受限于列名，但在 sql_query 中可以通过 AS 别名来适配。
-    // 或者我们直接返回 JSON 数组（如果能从驱动获取）。
-    
-    #[derive(QueryableByName, serde::Serialize)]
-    struct RawResult {
-        #[diesel(sql_type = diesel::sql_types::Text)]
-        pub res1: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
-        pub res2: String,
-    }
-
-    // 尝试执行查询并返回前两列（如果存在）
-    // 注意：这要求 SQL 语句必须 select 两个文本字段，并分别命名为 res1, res2
-    // 例如: SELECT name as res1, email as res2 FROM users
     let rows = diesel::sql_query(sql)
-        .load::<RawResult>(&mut conn)
+        .load::<DynamicRow>(&mut conn)
         .unwrap_or_default();
     
     serde_json::to_value(rows).unwrap()

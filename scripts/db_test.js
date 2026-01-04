@@ -10,7 +10,7 @@ async function runTests() {
         const affectedRows = await db.execute(insertSql);
         
         // 3. Query
-        const querySql = "SELECT name as res1, email as res2 FROM js_users WHERE name = 'js_user'";
+        const querySql = "SELECT name, email as res2 FROM js_users WHERE name = 'js_user'";
         const results = await db.query(querySql);
         
         // 4. Update
