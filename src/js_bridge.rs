@@ -85,10 +85,32 @@ impl ModuleLoader for TsModuleLoader {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct JsRequest {
-    method: String,
-    path: String,
-    headers: HashMap<String, String>,
-    body: String,
+    pub(crate) method: String,
+    pub(crate) path: String,
+    pub(crate) headers: HashMap<String, String>,
+    pub(crate) body: String,
+}
+
+impl JsRequest {
+    pub fn get_method(&self) -> String {
+        self.method.clone()
+    }
+
+    pub fn get_path(&self) -> String {
+        self.path.clone()
+    }
+
+    pub fn get_headers(&self) -> HashMap<String, String> {
+        self.headers.clone()
+    }
+
+    pub fn get_body(&self) -> String {
+        self.body.clone()
+    }
+
+    pub fn get_header(&self, key: &str) -> Option<String> {
+        self.headers.get(key).cloned()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -103,7 +125,54 @@ async fn op_delay(ms: u32) {
     tokio::time::sleep(std::time::Duration::from_millis(ms as u64)).await;
 }
 
-extension!(web_runtime, ops = [op_log, op_send_response, op_delay],);
+#[op2]
+#[string]
+fn op_req_method(state: &mut OpState) -> String {
+    let req = state.borrow::<JsRequest>();
+    req.get_method()
+}
+
+#[op2]
+#[string]
+fn op_req_path(state: &mut OpState) -> String {
+    let req = state.borrow::<JsRequest>();
+    req.get_path()
+}
+
+#[op2]
+#[serde]
+fn op_req_headers(state: &mut OpState) -> HashMap<String, String> {
+    let req = state.borrow::<JsRequest>();
+    req.get_headers()
+}
+
+#[op2]
+#[string]
+fn op_req_body(state: &mut OpState) -> String {
+    let req = state.borrow::<JsRequest>();
+    req.get_body()
+}
+
+#[op2]
+#[string]
+fn op_req_get_header(state: &mut OpState, #[string] key: String) -> Option<String> {
+    let req = state.borrow::<JsRequest>();
+    req.get_header(&key)
+}
+
+extension!(
+    web_runtime,
+    ops = [
+        op_log,
+        op_send_response,
+        op_delay,
+        op_req_method,
+        op_req_path,
+        op_req_headers,
+        op_req_body,
+        op_req_get_header
+    ],
+);
 
 #[op2(fast)]
 fn op_log(#[string] msg: String) {
@@ -159,10 +228,18 @@ pub async fn handle_js_script(Path(script_path): Path<String>, req: Request) -> 
         });
 
         runtime.op_state().borrow_mut().put(tx);
+        runtime.op_state().borrow_mut().put(js_req);
 
-        // 将请求对象注入 JS 环境
-        let req_json = serde_json::to_string(&js_req).unwrap();
-        let init_code = format!("globalThis.request = {};", req_json);
+        // 将请求对象注入 JS 环境，使用方法访问
+        let init_code = r#"
+            globalThis.request = {
+                method: () => Deno.core.ops.op_req_method(),
+                path: () => Deno.core.ops.op_req_path(),
+                headers: () => Deno.core.ops.op_req_headers(),
+                body: () => Deno.core.ops.op_req_body(),
+                header: (key) => Deno.core.ops.op_req_get_header(key),
+            };
+        "#;
         runtime.execute_script("<init>", init_code).unwrap();
 
         // 运行事件循环以支持 async/await 和 ES 模块
@@ -210,4 +287,41 @@ pub async fn handle_js_script(Path(script_path): Path<String>, req: Request) -> 
         .body(Body::from(js_res.body))
         .unwrap()
         .into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::Body;
+    use axum::extract::Path;
+    use axum::http::Request;
+    use axum::response::IntoResponse;
+
+    #[tokio::test]
+    async fn test_js_request_methods() {
+        let req = Request::builder()
+            .method("POST")
+            .uri("/js/test_request.js")
+            .header("X-Test", "value")
+            .body(Body::from("hello world"))
+            .unwrap();
+
+        let response = handle_js_script(Path("test_request.js".to_string()), req).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body_bytes = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let body_str = String::from_utf8_lossy(&body_bytes);
+        let json: serde_json::Value = serde_json::from_str(&body_str).unwrap();
+
+        assert_eq!(json["method"], "POST");
+        assert_eq!(json["path"], "/js/test_request.js");
+        assert_eq!(json["headers"]["x-test"], "value");
+        assert_eq!(json["body"], "hello world");
+        assert_eq!(json["x_test"], "value");
+        assert!(json["non_existent"].is_null());
+    }
 }
