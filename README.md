@@ -37,7 +37,7 @@
 3.  通过 `oneshot` channel 实现同步/异步桥接，将 JS 执行结果传回 Axum 主运行环境。
 
 #### 2.2.2 模块加载机制 (TsModuleLoader)
-实现自定义 `ModuleLoader`：
+实现自定义 `TsModuleLoader`：
 *   **路径解析**：支持相对路径导入。
 *   **自动转译**：在加载文件时，根据文件后缀（`.ts`, `.tsx`, `.mts` 等）利用 `deno_ast` 进行实时转译。
 *   **代码注入**：在脚本执行前，通过 `execute_script` 将 `globalThis.request` 对象注入全局作用域。
