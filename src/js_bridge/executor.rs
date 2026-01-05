@@ -31,27 +31,13 @@ impl ScriptExecutor {
             });
 
             runtime.op_state().borrow_mut().put(tx);
-            runtime.op_state().borrow_mut().put(config.request);
+            let rid = runtime
+                .op_state()
+                .borrow_mut()
+                .resource_table
+                .add(config.request);
+            runtime.execute_script("<init_rid>", format!("globalThis.__JS_REQUEST_RID__ = {}; console.log('globalThis',globalThis.__JS_REQUEST_RID__);", rid)).expect("Failed to inject RID");
             runtime.op_state().borrow_mut().put(config.db_pool);
-
-            // 将请求对象注入 JS 环境，使用方法访问
-            let init_code = r#"
-                globalThis.request = {
-                    method: () => Deno.core.ops.op_req_method(),
-                    path: () => Deno.core.ops.op_req_path(),
-                    headers: () => Deno.core.ops.op_req_headers(),
-                    body: () => Deno.core.ops.op_req_body(),
-                    header: (key) => Deno.core.ops.op_req_get_header(key),
-                };
-                globalThis.db = {
-                    execute: (sql) => Deno.core.ops.op_sql_execute(sql),
-                    query: (sql) => Deno.core.ops.op_sql_query(sql),
-                };
-            "#;
-            if let Err(e) = runtime.execute_script("<init>", init_code) {
-                eprintln!("Failed to execute init script: {}", e);
-                return;
-            }
 
             // 运行事件循环以支持 async/await 和 ES 模块
             let tokio_runtime = tokio::runtime::Builder::new_current_thread()

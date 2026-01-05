@@ -1,21 +1,32 @@
+use std::borrow::Cow;
 use axum::{
     body::Body,
     http::{HeaderName, HeaderValue},
     response::IntoResponse,
 };
+use deno_core::Resource;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct JsRequest {
     pub(crate) method: String,
     pub(crate) path: String,
     pub(crate) headers: HashMap<String, String>,
     pub(crate) body: String,
 }
-
+impl Resource for JsRequest {
+    fn name(&self) -> Cow<'_, str> {
+        "JsRequest".into()
+    }
+}
 impl JsRequest {
-    pub fn new(method: String, path: String, headers: HashMap<String, String>, body: String) -> Self {
+    pub fn new(
+        method: String,
+        path: String,
+        headers: HashMap<String, String>,
+        body: String,
+    ) -> Self {
         Self {
             method,
             path,

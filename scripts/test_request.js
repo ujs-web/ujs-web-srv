@@ -11,3 +11,4 @@ const res = {
     })
 };
 Deno.core.ops.op_send_response(res);
+request.close();
