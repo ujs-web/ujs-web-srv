@@ -4,6 +4,7 @@ pub mod loader;
 pub mod models;
 pub mod ops;
 pub mod jsonrpc_handler;
+pub mod jsonrpc;
 
 #[allow(unused_imports)]
 pub use executor::{RuntimeConfig, ScriptExecutor};

@@ -1,13 +1,11 @@
 use crate::db_bridge::DbPool;
-use crate::js_bridge::models::{JsRequest, JsResponse};
-use deno_core::{OpState, extension, op2};
+use deno_core::{op2, OpState};
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::row::{Field, NamedRow, Row};
 use serde_json::{Map, Value};
-use std::collections::HashMap;
-use tokio::sync::oneshot;
 
+/// 动态行 - 用于存储数据库查询结果
 #[derive(serde::Serialize)]
 pub struct DynamicRow(pub Map<String, Value>);
 
@@ -30,7 +28,6 @@ impl diesel::deserialize::QueryableByName<Pg> for DynamicRow {
             } else {
                 let raw_value = field.value().unwrap();
                 // 尝试多种类型，通过顺序保证优先匹配
-                // 在 PostgreSQL 二进制协议下，整数的长度是固定的
                 if let Ok(v) = FromSql::<diesel::sql_types::Integer, Pg>::from_sql(raw_value) {
                     let v: i32 = v;
                     Value::Number(serde_json::Number::from(v))
@@ -65,6 +62,7 @@ impl diesel::deserialize::QueryableByName<Pg> for DynamicRow {
     }
 }
 
+/// 数据库相关操作 - 单一职责：处理JavaScript对数据库的访问
 #[op2(fast)]
 pub fn op_sql_execute(state: &mut OpState, #[string] sql: String) -> u32 {
     let pool = state.borrow::<DbPool>();
@@ -87,96 +85,20 @@ pub fn op_sql_query(state: &mut OpState, #[string] sql: String) -> serde_json::V
     serde_json::to_value(rows).unwrap()
 }
 
-#[op2(async)]
-pub async fn op_delay(ms: u32) {
-    tokio::time::sleep(std::time::Duration::from_millis(ms as u64)).await;
-}
-#[op2]
-#[string]
-pub fn op_req_method(state: &mut OpState, #[smi] rid: u32) -> String {
-    let req = state
-        .resource_table
-        .get::<JsRequest>(rid)
-        .expect("Failed to get JsRequest resource");
-    req.get_method()
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[op2]
-#[string]
-pub fn op_req_path(state: &mut OpState, #[smi] rid: u32) -> String {
-    let req = state
-        .resource_table
-        .get::<JsRequest>(rid)
-        .expect("Failed to get JsRequest resource");
-    req.get_path()
-}
+    #[test]
+    fn test_dynamic_row_serialization() {
+        let mut map = Map::new();
+        map.insert("name".to_string(), Value::String("test".to_string()));
+        map.insert("age".to_string(), Value::Number(serde_json::Number::from(30)));
 
-#[op2]
-#[serde]
-pub fn op_req_headers(state: &mut OpState, #[smi] rid: u32) -> HashMap<String, String> {
-    let req = state
-        .resource_table
-        .get::<JsRequest>(rid)
-        .expect("Failed to get JsRequest resource");
-    req.get_headers()
-}
+        let row = DynamicRow(map);
+        let json = serde_json::to_value(&row).unwrap();
 
-#[op2]
-#[string]
-pub fn op_req_body(state: &mut OpState, #[smi] rid: u32) -> String {
-    let req = state
-        .resource_table
-        .get::<JsRequest>(rid)
-        .expect("Failed to get JsRequest resource");
-    req.get_body()
-}
-
-#[op2]
-#[string]
-pub fn op_req_get_header(
-    state: &mut OpState,
-    #[smi] rid: u32,
-    #[string] key: String,
-) -> Option<String> {
-    let req = state
-        .resource_table
-        .get::<JsRequest>(rid)
-        .expect("Failed to get JsRequest resource");
-    req.get_header(&key)
-}
-#[op2(fast)]
-pub fn op_req_close(state: &mut OpState, #[smi] rid: u32) {
-    if let Ok(resource) = state.resource_table.take_any(rid) {
-        resource.close();
+        assert_eq!(json["name"], "test");
+        assert_eq!(json["age"], 30);
     }
 }
-
-#[op2(fast)]
-pub fn op_log(#[string] msg: String) {
-    println!("[JS Log]: {}", msg);
-}
-
-#[op2]
-pub fn op_send_response(state: &mut OpState, #[serde] res: JsResponse) {
-    let tx = state.take::<oneshot::Sender<JsResponse>>();
-    let _ = tx.send(res);
-}
-
-extension!(
-    web_runtime,
-    ops = [
-        op_log,
-        op_send_response,
-        op_delay,
-        op_req_close,
-        op_req_method,
-        op_req_path,
-        op_req_headers,
-        op_req_body,
-        op_req_get_header,
-        op_sql_execute,
-        op_sql_query
-    ],
-    esm_entry_point = "ext:web_runtime/init.js", // 路径必须是 ext:<扩展名>/<文件名>，运行时才能识别
-    esm = [ dir "src/js_bridge", "init.js" ], // 打包
-);

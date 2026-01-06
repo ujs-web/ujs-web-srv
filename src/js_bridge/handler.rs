@@ -38,5 +38,6 @@ pub async fn handle_js_script(
         db_pool: pool,
     };
 
-    ScriptExecutor::execute(config).await.into_response()
+    let js_response: crate::js_bridge::models::JsResponse = ScriptExecutor::execute(config).await;
+    js_response.into_response()
 }

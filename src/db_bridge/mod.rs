@@ -26,8 +26,11 @@ mod tests {
         let mut conn = pool.get().expect("Failed to get connection from pool");
         let table_name = "dynamic_users";
 
+        // 0. Cleanup first (in case previous test failed)
+        let _ = drop_test_table(&mut conn, table_name);
+
         // 1. Setup
-        setup_test_table(&mut conn, table_name).expect("Failed to setup table");
+        let _ = setup_test_table(&mut conn, table_name).expect("Failed to setup table");
 
         // 2. Insert
         let columns = vec![
@@ -50,6 +53,6 @@ mod tests {
         assert_eq!(results_after.len(), 0);
 
         // 5. Cleanup
-        drop_test_table(&mut conn, table_name).expect("Failed to drop table");
+        let _ = drop_test_table(&mut conn, table_name).expect("Failed to drop table");
     }
 }
