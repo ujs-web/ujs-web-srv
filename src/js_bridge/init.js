@@ -16,7 +16,6 @@ export class Request {
     #rid;
 
     constructor() {
-        op_log(`In constructor, RID is: ${globalThis.__JS_REQUEST_RID__}`);
         this.#rid = globalThis.__JS_REQUEST_RID__;
     }
 
@@ -45,12 +44,14 @@ export class Request {
     }
 }
 
-globalThis.request = new Request();
+Object.defineProperty(globalThis, 'request', {
+    get() {
+        return new Request();
+    },
+    configurable: true
+});
 
 globalThis.db = {
     execute: (sql) => op_sql_execute(sql),
     query: (sql) => op_sql_query(sql),
 };
-
-// console.log("op_req_get_header:", op_req_get_header)
-// console.log("global:",Object.keys(globalThis))

@@ -3,10 +3,12 @@ pub mod handler;
 pub mod loader;
 pub mod models;
 pub mod ops;
+pub mod jsonrpc_handler;
 
 #[allow(unused_imports)]
 pub use executor::{RuntimeConfig, ScriptExecutor};
 pub use handler::handle_js_script;
+pub use jsonrpc_handler::handle_json_rpc;
 #[allow(unused_imports)]
 pub use loader::TsModuleLoader;
 
@@ -43,6 +45,7 @@ mod tests {
             .await
             .unwrap();
         let body_str = String::from_utf8_lossy(&body_bytes);
+        println!("Response body: {}", body_str);
         let json: serde_json::Value = serde_json::from_str(&body_str).unwrap();
 
         assert_eq!(json["method"], "POST");
@@ -289,5 +292,228 @@ mod tests {
         assert_eq!(json["first_row"]["metadata"], "developer");
         assert_eq!(json["subset"][1]["name"], "Bob");
         assert!(json["subset"][1]["age"].is_null()); // subset 不包含 age
+    }
+
+    #[tokio::test]
+    async fn test_json_rpc_add() {
+        use crate::db_bridge::establish_connection_pool;
+        use axum::extract::State;
+        use crate::js_bridge::models::{JsonRpcRequest, JsonRpcResponse};
+
+        let pool = establish_connection_pool();
+        let json_req = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            method: "add".to_string(),
+            params: Some(serde_json::json!({"a": 5, "b": 3})),
+            id: Some(serde_json::json!(1)),
+        };
+
+        let req = Request::builder()
+            .method("POST")
+            .uri("/rpc")
+            .header("Content-Type", "application/json")
+            .body(Body::from(serde_json::to_string(&json_req).unwrap()))
+            .unwrap();
+
+        let response = handle_json_rpc(State(pool), req).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), 200);
+
+        let body_bytes = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let body_str = String::from_utf8_lossy(&body_bytes);
+        println!("Response body: {}", body_str);
+
+        let json_res: JsonRpcResponse = serde_json::from_str(&body_str).unwrap();
+        assert_eq!(json_res.jsonrpc, "2.0");
+        assert!(json_res.error.is_none());
+        assert_eq!(json_res.id, Some(serde_json::json!(1)));
+        assert_eq!(json_res.result.unwrap()["result"], 8);
+    }
+
+    #[tokio::test]
+    async fn test_json_rpc_multiply() {
+        use crate::db_bridge::establish_connection_pool;
+        use axum::extract::State;
+        use crate::js_bridge::models::{JsonRpcRequest, JsonRpcResponse};
+
+        let pool = establish_connection_pool();
+        let json_req = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            method: "multiply".to_string(),
+            params: Some(serde_json::json!({"a": 4, "b": 7})),
+            id: Some(serde_json::json!(2)),
+        };
+
+        let req = Request::builder()
+            .method("POST")
+            .uri("/rpc")
+            .header("Content-Type", "application/json")
+            .body(Body::from(serde_json::to_string(&json_req).unwrap()))
+            .unwrap();
+
+        let response = handle_json_rpc(State(pool), req).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), 200);
+
+        let body_bytes = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let body_str = String::from_utf8_lossy(&body_bytes);
+        println!("Response body: {}", body_str);
+
+        let json_res: JsonRpcResponse = serde_json::from_str(&body_str).unwrap();
+        assert_eq!(json_res.jsonrpc, "2.0");
+        assert!(json_res.error.is_none());
+        assert_eq!(json_res.id, Some(serde_json::json!(2)));
+        assert_eq!(json_res.result.unwrap()["result"], 28);
+    }
+
+    #[tokio::test]
+    async fn test_json_rpc_greet() {
+        use crate::db_bridge::establish_connection_pool;
+        use axum::extract::State;
+        use crate::js_bridge::models::{JsonRpcRequest, JsonRpcResponse};
+
+        let pool = establish_connection_pool();
+        let json_req = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            method: "greet".to_string(),
+            params: Some(serde_json::json!({"name": "World"})),
+            id: Some(serde_json::json!(3)),
+        };
+
+        let req = Request::builder()
+            .method("POST")
+            .uri("/rpc")
+            .header("Content-Type", "application/json")
+            .body(Body::from(serde_json::to_string(&json_req).unwrap()))
+            .unwrap();
+
+        let response = handle_json_rpc(State(pool), req).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), 200);
+
+        let body_bytes = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let body_str = String::from_utf8_lossy(&body_bytes);
+        println!("Response body: {}", body_str);
+
+        let json_res: JsonRpcResponse = serde_json::from_str(&body_str).unwrap();
+        assert_eq!(json_res.jsonrpc, "2.0");
+        assert!(json_res.error.is_none());
+        assert_eq!(json_res.id, Some(serde_json::json!(3)));
+        assert_eq!(json_res.result.unwrap()["greeting"], "Hello, World!");
+    }
+
+    #[tokio::test]
+    async fn test_json_rpc_method_not_found() {
+        use crate::db_bridge::establish_connection_pool;
+        use axum::extract::State;
+        use crate::js_bridge::models::{JsonRpcRequest, JsonRpcResponse};
+
+        let pool = establish_connection_pool();
+        let json_req = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            method: "non_existent_method".to_string(),
+            params: None,
+            id: Some(serde_json::json!(4)),
+        };
+
+        let req = Request::builder()
+            .method("POST")
+            .uri("/rpc")
+            .header("Content-Type", "application/json")
+            .body(Body::from(serde_json::to_string(&json_req).unwrap()))
+            .unwrap();
+
+        let response = handle_json_rpc(State(pool), req).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), 200);
+
+        let body_bytes = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let body_str = String::from_utf8_lossy(&body_bytes);
+        println!("Response body: {}", body_str);
+
+        let json_res: JsonRpcResponse = serde_json::from_str(&body_str).unwrap();
+        assert_eq!(json_res.jsonrpc, "2.0");
+        assert!(json_res.result.is_none());
+        assert!(json_res.error.is_some());
+        assert_eq!(json_res.id, Some(serde_json::json!(4)));
+        assert_eq!(json_res.error.unwrap().code, -32601);
+    }
+
+    #[tokio::test]
+    async fn test_json_rpc_invalid_json() {
+        use crate::db_bridge::establish_connection_pool;
+        use axum::extract::State;
+        use crate::js_bridge::models::JsonRpcResponse;
+
+        let pool = establish_connection_pool();
+
+        let req = Request::builder()
+            .method("POST")
+            .uri("/rpc")
+            .header("Content-Type", "application/json")
+            .body(Body::from("{invalid json}"))
+            .unwrap();
+
+        let response = handle_json_rpc(State(pool), req).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), 200);
+
+        let body_bytes = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let body_str = String::from_utf8_lossy(&body_bytes);
+        println!("Response body: {}", body_str);
+
+        let json_res: JsonRpcResponse = serde_json::from_str(&body_str).unwrap();
+        assert_eq!(json_res.jsonrpc, "2.0");
+        assert!(json_res.result.is_none());
+        assert!(json_res.error.is_some());
+        assert_eq!(json_res.error.unwrap().code, -32700);
+    }
+
+    #[tokio::test]
+    async fn test_json_rpc_invalid_request() {
+        use crate::db_bridge::establish_connection_pool;
+        use axum::extract::State;
+        use crate::js_bridge::models::JsonRpcResponse;
+
+        let pool = establish_connection_pool();
+
+        let req = Request::builder()
+            .method("POST")
+            .uri("/rpc")
+            .header("Content-Type", "text/plain")
+            .body(Body::from("{}"))
+            .unwrap();
+
+        let response = handle_json_rpc(State(pool), req).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), 200);
+
+        let body_bytes = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let body_str = String::from_utf8_lossy(&body_bytes);
+        println!("Response body: {}", body_str);
+
+        let json_res: JsonRpcResponse = serde_json::from_str(&body_str).unwrap();
+        assert_eq!(json_res.jsonrpc, "2.0");
+        assert!(json_res.result.is_none());
+        assert!(json_res.error.is_some());
+        assert_eq!(json_res.error.unwrap().code, -32600);
     }
 }

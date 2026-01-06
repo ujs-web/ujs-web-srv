@@ -36,7 +36,18 @@ impl ScriptExecutor {
                 .borrow_mut()
                 .resource_table
                 .add(config.request);
-            runtime.execute_script("<init_rid>", format!("globalThis.__JS_REQUEST_RID__ = {}; console.log('globalThis',globalThis.__JS_REQUEST_RID__);", rid)).expect("Failed to inject RID");
+            let init_code = format!(
+                r#"
+    globalThis.__JS_REQUEST_RID__ = {};
+    // console.log('globalThis',globalThis.__JS_REQUEST_RID__);
+    // console.log('keys', JSON.stringify(Object.keys(Deno.core)));
+    // console.log(Object.keys(Deno.core).sort());
+                "#,
+                rid
+            );
+            runtime
+                .execute_script("<init_rid>", init_code)
+                .expect("Failed to inject RID");
             runtime.op_state().borrow_mut().put(config.db_pool);
 
             // 运行事件循环以支持 async/await 和 ES 模块
