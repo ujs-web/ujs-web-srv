@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-axum = { version = "0.8.8", features = ["macros"] }
+axum = { version = "0.8.8", features = ["macros", "ws"] }
 deno_core = "0.376.0"
 deno_ast = { version = "0.52.0", features = ["transpiling"] }
 serde = "1.0"
@@ -27,4 +27,6 @@ opentelemetry = "0.31.0"
 opentelemetry-jaeger = "0.22.0"
 tracing-opentelemetry = "0.32.0"
 time = "0.3.44"
+tokio-tungstenite = "0.26.2"
+futures-util = "0.3.31"
 

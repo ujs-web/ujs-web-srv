@@ -8,7 +8,7 @@ use axum::response::IntoResponse;
 
 /// JSON-RPC处理器 - 单一职责：协调请求解析、验证、处理和响应构建
 pub async fn handle_json_rpc(
-    State(pool): State<DbPool>,
+    State((pool, _)): State<(DbPool, std::sync::Arc<crate::websocket::WebSocketState>)>,
     req: Request,
 ) -> impl IntoResponse {
     // 解析HTTP请求
@@ -100,6 +100,7 @@ mod tests {
     #[tokio::test]
     async fn test_handle_single_request() {
         let pool = crate::db_bridge::get_test_pool();
+        let ws_state = crate::websocket::create_websocket_state();
         let request_body = json!({
             "jsonrpc": "2.0",
             "method": "add",
@@ -108,7 +109,7 @@ mod tests {
         });
 
         let request = create_test_request(request_body);
-        let response = handle_json_rpc(State(pool.clone()), request)
+        let response = handle_json_rpc(State((pool.clone(), ws_state)), request)
             .await
             .into_response();
 
@@ -118,6 +119,7 @@ mod tests {
     #[tokio::test]
     async fn test_handle_batch_request() {
         let pool = crate::db_bridge::get_test_pool();
+        let ws_state = crate::websocket::create_websocket_state();
         let request_body = json!([
             {
                 "jsonrpc": "2.0",
@@ -134,7 +136,7 @@ mod tests {
         ]);
 
         let request = create_test_request(request_body);
-        let response = handle_json_rpc(State(pool.clone()), request)
+        let response = handle_json_rpc(State((pool.clone(), ws_state)), request)
             .await
             .into_response();
 
@@ -144,6 +146,7 @@ mod tests {
     #[tokio::test]
     async fn test_handle_invalid_content_type() {
         let pool = crate::db_bridge::get_test_pool();
+        let ws_state = crate::websocket::create_websocket_state();
         let request = Request::builder()
             .method(Method::POST)
             .uri("/rpc")
@@ -151,7 +154,7 @@ mod tests {
             .body(Body::from("{}"))
             .unwrap();
 
-        let response = handle_json_rpc(State(pool.clone()), request)
+        let response = handle_json_rpc(State((pool.clone(), ws_state)), request)
             .await
             .into_response();
 

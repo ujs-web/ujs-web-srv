@@ -2,6 +2,7 @@ mod db_bridge;
 mod js_bridge;
 mod static_server;
 mod test_utils;
+mod websocket;
 
 use crate::js_bridge::jsonrpc::handle_json_rpc;
 use crate::static_server::StaticServerConfig;
@@ -10,8 +11,8 @@ use axum::{
     routing::{any, post},
 };
 use db_bridge::establish_connection_pool;
-use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
-use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
+use tower_http::trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 use time::UtcOffset;
 use tracing::Level;
 
@@ -43,6 +44,7 @@ async fn main() {
         .init();
 
     let pool = establish_connection_pool();
+    let ws_state = websocket::create_websocket_state();
 
     // 配置静态服务器
     let static_config = StaticServerConfig::new()
@@ -80,7 +82,8 @@ async fn main() {
     let app = Router::new()
         .route("/js/{*script_path}", any(js_bridge::handle_js_script))
         .route("/rpc", post(handle_json_rpc))
-        .with_state(pool)
+        .route("/ws", axum::routing::get(websocket::handle_websocket))
+        .with_state((pool, ws_state))
         .merge(static_router)
         .layer(trace_layer);
 

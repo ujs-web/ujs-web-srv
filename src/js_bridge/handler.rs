@@ -8,7 +8,7 @@ use axum::{
 use std::collections::HashMap;
 
 pub async fn handle_js_script(
-    State(pool): State<DbPool>,
+    State((pool, _)): State<(DbPool, std::sync::Arc<crate::websocket::WebSocketState>)>,
     Path(script_name): Path<String>,
     req: Request,
 ) -> impl IntoResponse {
