@@ -7,6 +7,7 @@ use super::super::handle_js_script;
 #[tokio::test]
 async fn test_js_request_methods() {
     let pool = crate::db_bridge::get_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let req = Request::builder()
         .method("POST")
         .uri("/js/test_request.js")
@@ -14,7 +15,7 @@ async fn test_js_request_methods() {
         .body(Body::from("hello world"))
         .unwrap();
 
-    let response = handle_js_script(State(pool.clone()), Path("test_request.js".to_string()), req).await;
+    let response = handle_js_script(State((pool.clone(), ws_state)), Path("test_request.js".to_string()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), StatusCode::OK);
@@ -37,13 +38,14 @@ async fn test_js_request_methods() {
 #[tokio::test]
 async fn test_js_async_with_threadpool() {
     let pool = crate::db_bridge::get_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let req = Request::builder()
         .method("GET")
         .uri("/js/async_test.js")
         .body(Body::empty())
         .unwrap();
 
-    let response = handle_js_script(State(pool.clone()), Path("async_test.js".to_string()), req).await;
+    let response = handle_js_script(State((pool.clone(), ws_state)), Path("async_test.js".to_string()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), StatusCode::OK);
@@ -60,13 +62,14 @@ async fn test_js_async_with_threadpool() {
 #[tokio::test]
 async fn test_script_not_found() {
     let pool = crate::db_bridge::get_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let req = Request::builder()
         .method("GET")
         .uri("/js/non_existent.js")
         .body(Body::empty())
         .unwrap();
 
-    let response = handle_js_script(State(pool.clone()), Path("non_existent.js".to_string()), req).await;
+    let response = handle_js_script(State((pool.clone(), ws_state)), Path("non_existent.js".to_string()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
@@ -75,6 +78,7 @@ async fn test_script_not_found() {
 #[tokio::test]
 async fn test_ts_transpilation() {
     let pool = crate::db_bridge::get_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let ts_code = r#"
             interface User { name: string; }
             const user: User = { name: "TS User" };
@@ -94,7 +98,7 @@ async fn test_ts_transpilation() {
         .body(Body::empty())
         .unwrap();
 
-    let response = handle_js_script(State(pool.clone()), Path("test_ts_transpile.ts".to_string()), req).await;
+    let response = handle_js_script(State((pool.clone(), ws_state)), Path("test_ts_transpile.ts".to_string()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), StatusCode::OK);
@@ -111,6 +115,7 @@ async fn test_ts_transpilation() {
 #[tokio::test]
 async fn test_js_syntax_error_handling() {
     let pool = crate::db_bridge::get_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let bad_code = "this is not javascript";
     std::fs::write("./scripts/bad_syntax.js", bad_code).unwrap();
 
@@ -120,7 +125,7 @@ async fn test_js_syntax_error_handling() {
         .body(Body::empty())
         .unwrap();
 
-    let response = handle_js_script(State(pool.clone()), Path("bad_syntax.js".to_string()), req).await;
+    let response = handle_js_script(State((pool.clone(), ws_state)), Path("bad_syntax.js".to_string()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
@@ -131,13 +136,14 @@ async fn test_js_syntax_error_handling() {
 #[tokio::test]
 async fn test_js_sql_operations() {
     let pool = crate::db_bridge::get_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let req = Request::builder()
         .method("GET")
         .uri("/js/db_test.js")
         .body(Body::empty())
         .unwrap();
 
-    let response = handle_js_script(State(pool.clone()), Path("db_test.js".to_string()), req).await;
+    let response = handle_js_script(State((pool.clone(), ws_state)), Path("db_test.js".to_string()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), StatusCode::OK);
@@ -160,13 +166,14 @@ async fn test_js_sql_operations() {
 #[tokio::test]
 async fn test_js_sql_dynamic_row() {
     let pool = crate::db_bridge::get_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let req = Request::builder()
         .method("GET")
         .uri("/js/db_dynamic_test.js")
         .body(Body::empty())
         .unwrap();
 
-    let response = handle_js_script(State(pool.clone()), Path("db_dynamic_test.js".to_string()), req).await;
+    let response = handle_js_script(State((pool.clone(), ws_state)), Path("db_dynamic_test.js".to_string()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), StatusCode::OK);

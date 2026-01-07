@@ -25,6 +25,7 @@ fn create_json_rpc_request(body: serde_json::Value) -> Request<Body> {
 #[tokio::test]
 async fn test_single_request_success() {
     let pool = create_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let request_body = json!({
         "jsonrpc": "2.0",
         "method": "add",
@@ -33,7 +34,7 @@ async fn test_single_request_success() {
     });
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool.clone()), request)
+    let response = handle_json_rpc(State((pool.clone(), ws_state)), request)
         .await
         .into_response();
 
@@ -57,6 +58,7 @@ async fn test_single_request_success() {
 #[tokio::test]
 async fn test_single_request_multiply() {
     let pool = create_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let request_body = json!({
         "jsonrpc": "2.0",
         "method": "multiply",
@@ -65,7 +67,7 @@ async fn test_single_request_multiply() {
     });
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool.clone()), request)
+    let response = handle_json_rpc(State((pool.clone(), ws_state)), request)
         .await
         .into_response();
 
@@ -88,6 +90,7 @@ async fn test_single_request_multiply() {
 #[tokio::test]
 async fn test_batch_request_success() {
     let pool = create_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let request_body = json!([
         {
             "jsonrpc": "2.0",
@@ -110,7 +113,7 @@ async fn test_batch_request_success() {
     ]);
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool.clone()), request)
+    let response = handle_json_rpc(State((pool.clone(), ws_state)), request)
         .await
         .into_response();
 
@@ -140,6 +143,7 @@ async fn test_batch_request_success() {
 #[tokio::test]
 async fn test_batch_request_with_notifications() {
     let pool = create_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let request_body = json!([
         {
             "jsonrpc": "2.0",
@@ -161,7 +165,7 @@ async fn test_batch_request_with_notifications() {
     ]);
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool.clone()), request)
+    let response = handle_json_rpc(State((pool.clone(), ws_state)), request)
         .await
         .into_response();
 
@@ -181,6 +185,7 @@ async fn test_batch_request_with_notifications() {
 #[tokio::test]
 async fn test_all_notifications() {
     let pool = create_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let request_body = json!([
         {
             "jsonrpc": "2.0",
@@ -195,7 +200,7 @@ async fn test_all_notifications() {
     ]);
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool.clone()), request)
+    let response = handle_json_rpc(State((pool.clone(), ws_state)), request)
         .await
         .into_response();
 
@@ -210,6 +215,7 @@ async fn test_all_notifications() {
 #[tokio::test]
 async fn test_method_not_found() {
     let pool = create_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let request_body = json!({
         "jsonrpc": "2.0",
         "method": "nonexistent",
@@ -218,7 +224,7 @@ async fn test_method_not_found() {
     });
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool.clone()), request)
+    let response = handle_json_rpc(State((pool.clone(), ws_state)), request)
         .await
         .into_response();
 
@@ -239,6 +245,7 @@ async fn test_method_not_found() {
 #[tokio::test]
 async fn test_invalid_jsonrpc_version() {
     let pool = create_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let request_body = json!({
         "jsonrpc": "1.0",
         "method": "add",
@@ -247,7 +254,7 @@ async fn test_invalid_jsonrpc_version() {
     });
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool.clone()), request)
+    let response = handle_json_rpc(State((pool.clone(), ws_state)), request)
         .await
         .into_response();
 
@@ -268,6 +275,7 @@ async fn test_invalid_jsonrpc_version() {
 #[tokio::test]
 async fn test_empty_method() {
     let pool = create_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let request_body = json!({
         "jsonrpc": "2.0",
         "method": "",
@@ -276,7 +284,7 @@ async fn test_empty_method() {
     });
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool.clone()), request)
+    let response = handle_json_rpc(State((pool.clone(), ws_state)), request)
         .await
         .into_response();
 
@@ -296,6 +304,7 @@ async fn test_empty_method() {
 #[tokio::test]
 async fn test_invalid_content_type() {
     let pool = create_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let request = Request::builder()
         .method(Method::POST)
         .uri("/rpc")
@@ -303,7 +312,7 @@ async fn test_invalid_content_type() {
         .body(Body::from("{}"))
         .unwrap();
 
-    let response = handle_json_rpc(State(pool.clone()), request)
+    let response = handle_json_rpc(State((pool.clone(), ws_state)), request)
         .await
         .into_response();
 
@@ -323,10 +332,11 @@ async fn test_invalid_content_type() {
 #[tokio::test]
 async fn test_empty_batch_request() {
     let pool = create_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let request_body = json!([]);
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool.clone()), request)
+    let response = handle_json_rpc(State((pool.clone(), ws_state)), request)
         .await
         .into_response();
 
@@ -347,6 +357,7 @@ async fn test_empty_batch_request() {
 #[tokio::test]
 async fn test_batch_with_mixed_success_and_errors() {
     let pool = create_test_pool();
+    let ws_state = crate::websocket::create_websocket_state();
     let request_body = json!([
         {
             "jsonrpc": "2.0",
@@ -369,7 +380,7 @@ async fn test_batch_with_mixed_success_and_errors() {
     ]);
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool.clone()), request)
+    let response = handle_json_rpc(State((pool.clone(), ws_state)), request)
         .await
         .into_response();
 
