@@ -5,11 +5,24 @@ use std::env;
 
 pub type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
+/// 获取全局测试连接池（单例模式）
+pub fn get_test_pool() -> &'static DbPool {
+    use std::sync::OnceLock;
+    static POOL: OnceLock<DbPool> = OnceLock::new();
+    POOL.get_or_init(|| {
+        establish_connection_pool()
+    })
+}
+
 pub fn establish_connection_pool() -> DbPool {
     dotenv().ok();
     let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| "postgres://ever@localhost/postgres".to_string());
     let manager = ConnectionManager::<PgConnection>::new(database_url);
     r2d2::Pool::builder()
+        .max_size(15)
+        .min_idle(Some(2))
+        .max_lifetime(Some(std::time::Duration::from_secs(1800)))
+        .idle_timeout(Some(std::time::Duration::from_secs(600)))
         .build(manager)
         .expect("Failed to create pool.")
 }
@@ -19,10 +32,11 @@ pub mod ops;
 mod tests {
     use super::*;
     use crate::db_bridge::ops::*;
+    use crate::test_utils::get_test_pool;
 
     #[test]
     fn test_db_operations() {
-        let pool = establish_connection_pool();
+        let pool = get_test_pool();
         let mut conn = pool.get().expect("Failed to get connection from pool");
         let table_name = "dynamic_users";
 
@@ -54,5 +68,8 @@ mod tests {
 
         // 5. Cleanup
         let _ = drop_test_table(&mut conn, table_name).expect("Failed to drop table");
+
+        // Explicitly drop connection to return it to pool
+        drop(conn);
     }
 }

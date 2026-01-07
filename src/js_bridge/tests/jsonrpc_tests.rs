@@ -8,7 +8,7 @@ use super::super::models::{JsonRpcRequest, JsonRpcResponse};
 
 #[tokio::test]
 async fn test_json_rpc_add() {
-    let pool = establish_connection_pool();
+    let pool = crate::db_bridge::get_test_pool();
     let json_req = JsonRpcRequest {
         jsonrpc: "2.0".to_string(),
         method: "add".to_string(),
@@ -23,7 +23,7 @@ async fn test_json_rpc_add() {
         .body(Body::from(serde_json::to_string(&json_req).unwrap()))
         .unwrap();
 
-    let response = handle_json_rpc(State(pool), req).await;
+    let response = handle_json_rpc(State(pool.clone()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), 200);
@@ -43,7 +43,7 @@ async fn test_json_rpc_add() {
 
 #[tokio::test]
 async fn test_json_rpc_multiply() {
-    let pool = establish_connection_pool();
+    let pool = crate::db_bridge::get_test_pool();
     let json_req = JsonRpcRequest {
         jsonrpc: "2.0".to_string(),
         method: "multiply".to_string(),
@@ -58,7 +58,7 @@ async fn test_json_rpc_multiply() {
         .body(Body::from(serde_json::to_string(&json_req).unwrap()))
         .unwrap();
 
-    let response = handle_json_rpc(State(pool), req).await;
+    let response = handle_json_rpc(State(pool.clone()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), 200);
@@ -78,7 +78,7 @@ async fn test_json_rpc_multiply() {
 
 #[tokio::test]
 async fn test_json_rpc_greet() {
-    let pool = establish_connection_pool();
+    let pool = crate::db_bridge::get_test_pool();
     let json_req = JsonRpcRequest {
         jsonrpc: "2.0".to_string(),
         method: "greet".to_string(),
@@ -93,7 +93,7 @@ async fn test_json_rpc_greet() {
         .body(Body::from(serde_json::to_string(&json_req).unwrap()))
         .unwrap();
 
-    let response = handle_json_rpc(State(pool), req).await;
+    let response = handle_json_rpc(State(pool.clone()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), 200);
@@ -113,7 +113,7 @@ async fn test_json_rpc_greet() {
 
 #[tokio::test]
 async fn test_json_rpc_method_not_found() {
-    let pool = establish_connection_pool();
+    let pool = crate::db_bridge::get_test_pool();
     let json_req = JsonRpcRequest {
         jsonrpc: "2.0".to_string(),
         method: "non_existent_method".to_string(),
@@ -128,7 +128,7 @@ async fn test_json_rpc_method_not_found() {
         .body(Body::from(serde_json::to_string(&json_req).unwrap()))
         .unwrap();
 
-    let response = handle_json_rpc(State(pool), req).await;
+    let response = handle_json_rpc(State(pool.clone()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), 200);
@@ -149,7 +149,7 @@ async fn test_json_rpc_method_not_found() {
 
 #[tokio::test]
 async fn test_json_rpc_invalid_json() {
-    let pool = establish_connection_pool();
+    let pool = crate::db_bridge::get_test_pool();
 
     let req = Request::builder()
         .method("POST")
@@ -158,7 +158,7 @@ async fn test_json_rpc_invalid_json() {
         .body(Body::from("{invalid json}"))
         .unwrap();
 
-    let response = handle_json_rpc(State(pool), req).await;
+    let response = handle_json_rpc(State(pool.clone()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), 200);
@@ -178,7 +178,7 @@ async fn test_json_rpc_invalid_json() {
 
 #[tokio::test]
 async fn test_json_rpc_invalid_request() {
-    let pool = establish_connection_pool();
+    let pool = crate::db_bridge::get_test_pool();
 
     let req = Request::builder()
         .method("POST")
@@ -187,7 +187,7 @@ async fn test_json_rpc_invalid_request() {
         .body(Body::from("{}"))
         .unwrap();
 
-    let response = handle_json_rpc(State(pool), req).await;
+    let response = handle_json_rpc(State(pool.clone()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), 200);

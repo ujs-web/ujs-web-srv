@@ -99,7 +99,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_single_request() {
-        let pool = crate::db_bridge::establish_connection_pool();
+        let pool = crate::db_bridge::get_test_pool();
         let request_body = json!({
             "jsonrpc": "2.0",
             "method": "add",
@@ -108,7 +108,7 @@ mod tests {
         });
 
         let request = create_test_request(request_body);
-        let response = handle_json_rpc(State(pool), request)
+        let response = handle_json_rpc(State(pool.clone()), request)
             .await
             .into_response();
 
@@ -117,7 +117,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_batch_request() {
-        let pool = crate::db_bridge::establish_connection_pool();
+        let pool = crate::db_bridge::get_test_pool();
         let request_body = json!([
             {
                 "jsonrpc": "2.0",
@@ -134,7 +134,7 @@ mod tests {
         ]);
 
         let request = create_test_request(request_body);
-        let response = handle_json_rpc(State(pool), request)
+        let response = handle_json_rpc(State(pool.clone()), request)
             .await
             .into_response();
 
@@ -143,7 +143,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_invalid_content_type() {
-        let pool = crate::db_bridge::establish_connection_pool();
+        let pool = crate::db_bridge::get_test_pool();
         let request = Request::builder()
             .method(Method::POST)
             .uri("/rpc")
@@ -151,7 +151,7 @@ mod tests {
             .body(Body::from("{}"))
             .unwrap();
 
-        let response = handle_json_rpc(State(pool), request)
+        let response = handle_json_rpc(State(pool.clone()), request)
             .await
             .into_response();
 

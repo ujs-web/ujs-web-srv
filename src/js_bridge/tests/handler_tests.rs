@@ -2,12 +2,12 @@ use axum::body::Body;
 use axum::extract::{Path, State};
 use axum::http::{Request, StatusCode};
 use axum::response::IntoResponse;
-use crate::db_bridge::establish_connection_pool;
+use crate::test_utils::get_test_pool;
 use super::super::handle_js_script;
 
 #[tokio::test]
 async fn test_js_request_methods() {
-    let pool = establish_connection_pool();
+    let pool = crate::db_bridge::get_test_pool();
     let req = Request::builder()
         .method("POST")
         .uri("/js/test_request.js")
@@ -15,7 +15,7 @@ async fn test_js_request_methods() {
         .body(Body::from("hello world"))
         .unwrap();
 
-    let response = handle_js_script(State(pool), Path("test_request.js".to_string()), req).await;
+    let response = handle_js_script(State(pool.clone()), Path("test_request.js".to_string()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), StatusCode::OK);
@@ -37,14 +37,14 @@ async fn test_js_request_methods() {
 
 #[tokio::test]
 async fn test_js_async_with_threadpool() {
-    let pool = establish_connection_pool();
+    let pool = crate::db_bridge::get_test_pool();
     let req = Request::builder()
         .method("GET")
         .uri("/js/async_test.js")
         .body(Body::empty())
         .unwrap();
 
-    let response = handle_js_script(State(pool), Path("async_test.js".to_string()), req).await;
+    let response = handle_js_script(State(pool.clone()), Path("async_test.js".to_string()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), StatusCode::OK);
@@ -60,14 +60,14 @@ async fn test_js_async_with_threadpool() {
 
 #[tokio::test]
 async fn test_script_not_found() {
-    let pool = establish_connection_pool();
+    let pool = crate::db_bridge::get_test_pool();
     let req = Request::builder()
         .method("GET")
         .uri("/js/non_existent.js")
         .body(Body::empty())
         .unwrap();
 
-    let response = handle_js_script(State(pool), Path("non_existent.js".to_string()), req).await;
+    let response = handle_js_script(State(pool.clone()), Path("non_existent.js".to_string()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
@@ -75,7 +75,7 @@ async fn test_script_not_found() {
 
 #[tokio::test]
 async fn test_ts_transpilation() {
-    let pool = establish_connection_pool();
+    let pool = crate::db_bridge::get_test_pool();
     let ts_code = r#"
             interface User { name: string; }
             const user: User = { name: "TS User" };
@@ -95,7 +95,7 @@ async fn test_ts_transpilation() {
         .body(Body::empty())
         .unwrap();
 
-    let response = handle_js_script(State(pool), Path("test_ts_transpile.ts".to_string()), req).await;
+    let response = handle_js_script(State(pool.clone()), Path("test_ts_transpile.ts".to_string()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), StatusCode::OK);
@@ -111,7 +111,7 @@ async fn test_ts_transpilation() {
 
 #[tokio::test]
 async fn test_js_syntax_error_handling() {
-    let pool = establish_connection_pool();
+    let pool = crate::db_bridge::get_test_pool();
     let bad_code = "this is not javascript";
     std::fs::write("./scripts/bad_syntax.js", bad_code).unwrap();
 
@@ -121,7 +121,7 @@ async fn test_js_syntax_error_handling() {
         .body(Body::empty())
         .unwrap();
 
-    let response = handle_js_script(State(pool), Path("bad_syntax.js".to_string()), req).await;
+    let response = handle_js_script(State(pool.clone()), Path("bad_syntax.js".to_string()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
@@ -131,14 +131,14 @@ async fn test_js_syntax_error_handling() {
 
 #[tokio::test]
 async fn test_js_sql_operations() {
-    let pool = establish_connection_pool();
+    let pool = crate::db_bridge::get_test_pool();
     let req = Request::builder()
         .method("GET")
         .uri("/js/db_test.js")
         .body(Body::empty())
         .unwrap();
 
-    let response = handle_js_script(State(pool), Path("db_test.js".to_string()), req).await;
+    let response = handle_js_script(State(pool.clone()), Path("db_test.js".to_string()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), StatusCode::OK);
@@ -160,14 +160,14 @@ async fn test_js_sql_operations() {
 
 #[tokio::test]
 async fn test_js_sql_dynamic_row() {
-    let pool = establish_connection_pool();
+    let pool = crate::db_bridge::get_test_pool();
     let req = Request::builder()
         .method("GET")
         .uri("/js/db_dynamic_test.js")
         .body(Body::empty())
         .unwrap();
 
-    let response = handle_js_script(State(pool), Path("db_dynamic_test.js".to_string()), req).await;
+    let response = handle_js_script(State(pool.clone()), Path("db_dynamic_test.js".to_string()), req).await;
     let response = response.into_response();
 
     assert_eq!(response.status(), StatusCode::OK);

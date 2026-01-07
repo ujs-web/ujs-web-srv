@@ -33,7 +33,7 @@ async fn test_single_request_success() {
     });
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool), request)
+    let response = handle_json_rpc(State(pool.clone()), request)
         .await
         .into_response();
 
@@ -65,7 +65,7 @@ async fn test_single_request_multiply() {
     });
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool), request)
+    let response = handle_json_rpc(State(pool.clone()), request)
         .await
         .into_response();
 
@@ -110,7 +110,7 @@ async fn test_batch_request_success() {
     ]);
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool), request)
+    let response = handle_json_rpc(State(pool.clone()), request)
         .await
         .into_response();
 
@@ -161,7 +161,7 @@ async fn test_batch_request_with_notifications() {
     ]);
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool), request)
+    let response = handle_json_rpc(State(pool.clone()), request)
         .await
         .into_response();
 
@@ -195,7 +195,7 @@ async fn test_all_notifications() {
     ]);
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool), request)
+    let response = handle_json_rpc(State(pool.clone()), request)
         .await
         .into_response();
 
@@ -218,7 +218,7 @@ async fn test_method_not_found() {
     });
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool), request)
+    let response = handle_json_rpc(State(pool.clone()), request)
         .await
         .into_response();
 
@@ -247,7 +247,7 @@ async fn test_invalid_jsonrpc_version() {
     });
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool), request)
+    let response = handle_json_rpc(State(pool.clone()), request)
         .await
         .into_response();
 
@@ -276,7 +276,7 @@ async fn test_empty_method() {
     });
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool), request)
+    let response = handle_json_rpc(State(pool.clone()), request)
         .await
         .into_response();
 
@@ -303,7 +303,7 @@ async fn test_invalid_content_type() {
         .body(Body::from("{}"))
         .unwrap();
 
-    let response = handle_json_rpc(State(pool), request)
+    let response = handle_json_rpc(State(pool.clone()), request)
         .await
         .into_response();
 
@@ -326,7 +326,7 @@ async fn test_empty_batch_request() {
     let request_body = json!([]);
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool), request)
+    let response = handle_json_rpc(State(pool.clone()), request)
         .await
         .into_response();
 
@@ -369,7 +369,7 @@ async fn test_batch_with_mixed_success_and_errors() {
     ]);
 
     let request = create_json_rpc_request(request_body);
-    let response = handle_json_rpc(State(pool), request)
+    let response = handle_json_rpc(State(pool.clone()), request)
         .await
         .into_response();
 
