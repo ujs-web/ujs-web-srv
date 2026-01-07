@@ -3,10 +3,11 @@ use deno_core::{OpState, op2};
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::row::{Field, NamedRow, Row};
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 /// 动态行 - 用于存储数据库查询结果
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct DynamicRow(pub Map<String, Value>);
 
 impl diesel::deserialize::QueryableByName<Pg> for DynamicRow {

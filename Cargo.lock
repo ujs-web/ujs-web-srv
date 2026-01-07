@@ -2901,6 +2901,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 
 [[package]]
+name = "ujs-web-srv"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "deno_ast",
+ "deno_core",
+ "deno_error",
+ "diesel",
+ "diesel-dynamic-schema",
+ "dotenvy",
+ "futures",
+ "mime_guess",
+ "r2d2",
+ "rayon",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
+ "tower-http",
+]
+
+[[package]]
 name = "unicase"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3046,28 +3068,6 @@ checksum = "a10e6b67c951a84de7029487e0e0a496860dae49f6699edd279d5ff35b8fbf54"
 dependencies = [
  "deno_error",
  "thiserror",
-]
-
-[[package]]
-name = "web_deno"
-version = "0.1.0"
-dependencies = [
- "axum",
- "deno_ast",
- "deno_core",
- "deno_error",
- "diesel",
- "diesel-dynamic-schema",
- "dotenvy",
- "futures",
- "mime_guess",
- "r2d2",
- "rayon",
- "serde",
- "serde_json",
- "tokio",
- "tower",
- "tower-http",
 ]
 
 [[package]]
