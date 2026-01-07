@@ -3,6 +3,7 @@ pub mod models_tests;
 pub mod jsonrpc_tests;
 pub mod jsonrpc_handler_tests;
 pub mod ops_tests;
+pub mod loader_tests;
 mod jsonrpc_batch_processor;
 mod runtime_factory_test;
 mod script_runner_tests;
