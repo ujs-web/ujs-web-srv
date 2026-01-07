@@ -2,7 +2,6 @@ use axum::body::Body;
 use axum::extract::{Path, State};
 use axum::http::{Request, StatusCode};
 use axum::response::IntoResponse;
-use crate::test_utils::get_test_pool;
 use super::super::handle_js_script;
 
 #[tokio::test]

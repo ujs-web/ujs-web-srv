@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::js_bridge::jsonrpc::batch_processor::BatchProcessor;
     use crate::js_bridge::models::JsonRpcRequest;
     use serde_json::json;

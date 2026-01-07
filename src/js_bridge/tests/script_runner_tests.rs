@@ -4,8 +4,6 @@ mod tests {
     use crate::js_bridge::models::JsRequest;
     use crate::js_bridge::{RuntimeConfig, ScriptExecutor};
     use std::fs;
-    use std::path::PathBuf;
-
     #[test]
     fn test_run_script_not_found() {
         let mut runtime =

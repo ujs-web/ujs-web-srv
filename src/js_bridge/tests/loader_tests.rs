@@ -1,7 +1,5 @@
 use deno_core::{ModuleLoader, ResolutionKind};
-use deno_error::JsErrorBox;
 use std::fs;
-use std::path::PathBuf;
 use super::super::loader::TsModuleLoader;
 
 #[tokio::test]

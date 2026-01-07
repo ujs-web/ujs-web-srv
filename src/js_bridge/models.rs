@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use axum::{
     body::Body,
     http::{HeaderName, HeaderValue},
@@ -6,6 +5,7 @@ use axum::{
 };
 use deno_core::Resource;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -172,14 +172,15 @@ impl JsonRpcError {
         }
     }
 
-    pub fn invalid_params(msg: &str) -> Self {
-        Self {
-            code: -32602,
-            message: "Invalid params".to_string(),
-            data: Some(serde_json::json!(msg)),
+    /*
+        pub fn invalid_params(msg: &str) -> Self {
+            Self {
+                code: -32602,
+                message: "Invalid params".to_string(),
+                data: Some(serde_json::json!(msg)),
+            }
         }
-    }
-
+    */
     pub fn internal_error(msg: &str) -> Self {
         Self {
             code: -32603,

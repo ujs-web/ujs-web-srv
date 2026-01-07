@@ -30,7 +30,6 @@ pub mod ops;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::db_bridge::ops::*;
     use crate::test_utils::get_test_pool;
 

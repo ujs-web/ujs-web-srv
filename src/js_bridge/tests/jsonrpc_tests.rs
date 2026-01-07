@@ -1,8 +1,7 @@
 use axum::body::Body;
 use axum::extract::State;
-use axum::http::{Request, StatusCode};
+use axum::http::{Request};
 use axum::response::IntoResponse;
-use crate::db_bridge::establish_connection_pool;
 use crate::js_bridge::jsonrpc::handle_json_rpc;
 use super::super::models::{JsonRpcRequest, JsonRpcResponse};
 

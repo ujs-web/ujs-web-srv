@@ -11,8 +11,6 @@ pub fn op_send_response(state: &mut OpState, #[serde] res: JsResponse) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_op_send_response_exists() {
         // 测试ops函数存在且可以编译

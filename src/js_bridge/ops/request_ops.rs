@@ -66,8 +66,6 @@ pub fn op_req_close(state: &mut OpState, #[smi] rid: u32) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_op_req_ops_exist() {
         // 测试ops函数存在且可以编译

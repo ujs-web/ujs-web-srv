@@ -13,8 +13,6 @@ pub async fn op_delay(ms: u32) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_op_log_exists() {
         // 测试ops函数存在且可以编译

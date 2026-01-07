@@ -2,7 +2,6 @@
 mod tests {
     use serde_json::{Map, Value, Number};
     use crate::js_bridge::ops::db_ops::DynamicRow;
-    use super::*;
 
     #[test]
     fn test_dynamic_row_serialization() {
