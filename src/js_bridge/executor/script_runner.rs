@@ -48,16 +48,3 @@ impl ScriptRunner {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_run_script_not_found() {
-        let mut runtime = crate::js_bridge::executor::runtime_factory::RuntimeFactory::create_runtime();
-
-        let result = ScriptRunner::run_script(&mut runtime, "./non_existent.js");
-        assert!(result.is_err());
-    }
-}

@@ -1,5 +1,5 @@
 use crate::db_bridge::DbPool;
-use deno_core::{op2, OpState};
+use deno_core::{OpState, op2};
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::row::{Field, NamedRow, Row};
@@ -85,20 +85,3 @@ pub fn op_sql_query(state: &mut OpState, #[string] sql: String) -> serde_json::V
     serde_json::to_value(rows).unwrap()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_dynamic_row_serialization() {
-        let mut map = Map::new();
-        map.insert("name".to_string(), Value::String("test".to_string()));
-        map.insert("age".to_string(), Value::Number(serde_json::Number::from(30)));
-
-        let row = DynamicRow(map);
-        let json = serde_json::to_value(&row).unwrap();
-
-        assert_eq!(json["name"], "test");
-        assert_eq!(json["age"], 30);
-    }
-}

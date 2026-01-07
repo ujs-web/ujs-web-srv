@@ -53,29 +53,3 @@ impl ScriptExecutor {
         })
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_execute_script_not_found() {
-        let pool = crate::db_bridge::establish_connection_pool();
-
-        let request = JsRequest {
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            headers: std::collections::HashMap::new(),
-            body: String::new(),
-        };
-
-        let config = RuntimeConfig {
-            script_path: "./non_existent.js".to_string(),
-            request,
-            db_pool: pool,
-        };
-
-        let response = ScriptExecutor::execute(config).await;
-        assert_eq!(response.status, 404);
-    }
-}

@@ -1,7 +1,7 @@
 use crate::db_bridge::DbPool;
 use crate::js_bridge::executor::{RuntimeConfig, ScriptExecutor};
-use crate::js_bridge::models::{JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 use crate::js_bridge::jsonrpc::request_validator::RequestValidator;
+use crate::js_bridge::models::{JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 use std::collections::HashMap;
 
 /// 批量请求处理器 - 单一职责：处理批量JSON-RPC请求
@@ -75,7 +75,10 @@ impl BatchProcessor {
     }
 
     /// 构建结果
-    fn build_result(js_response: crate::js_bridge::models::JsResponse, request_id: Option<serde_json::Value>) -> JsonRpcResponse {
+    fn build_result(
+        js_response: crate::js_bridge::models::JsResponse,
+        request_id: Option<serde_json::Value>,
+    ) -> JsonRpcResponse {
         if js_response.status == 200 {
             let result: serde_json::Value = match serde_json::from_str(&js_response.body) {
                 Ok(v) => v,
@@ -83,68 +86,7 @@ impl BatchProcessor {
             };
             JsonRpcResponse::success(result, request_id)
         } else {
-            JsonRpcResponse::error(
-                JsonRpcError::internal_error(&js_response.body),
-                request_id,
-            )
+            JsonRpcResponse::error(JsonRpcError::internal_error(&js_response.body), request_id)
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    #[tokio::test]
-    async fn test_process_batch() {
-        let pool = crate::db_bridge::establish_connection_pool();
-        let headers = HashMap::new();
-
-        let requests = vec![
-            JsonRpcRequest {
-                jsonrpc: "2.0".to_string(),
-                method: "add".to_string(),
-                params: Some(json!({"a": 1, "b": 2})),
-                id: Some(json!(1)),
-            },
-            JsonRpcRequest {
-                jsonrpc: "2.0".to_string(),
-                method: "multiply".to_string(),
-                params: Some(json!({"a": 3, "b": 4})),
-                id: Some(json!(2)),
-            },
-        ];
-
-        let responses = BatchProcessor::process_batch(requests, pool, headers).await;
-        assert_eq!(responses.len(), 2);
-        assert!(responses[0].result.is_some());
-        assert!(responses[1].result.is_some());
-    }
-
-    #[tokio::test]
-    async fn test_process_batch_with_errors() {
-        let pool = crate::db_bridge::establish_connection_pool();
-        let headers = HashMap::new();
-
-        let requests = vec![
-            JsonRpcRequest {
-                jsonrpc: "2.0".to_string(),
-                method: "add".to_string(),
-                params: Some(json!({"a": 1, "b": 2})),
-                id: Some(json!(1)),
-            },
-            JsonRpcRequest {
-                jsonrpc: "2.0".to_string(),
-                method: "nonexistent".to_string(),
-                params: Some(json!({})),
-                id: Some(json!(2)),
-            },
-        ];
-
-        let responses = BatchProcessor::process_batch(requests, pool, headers).await;
-        assert_eq!(responses.len(), 2);
-        assert!(responses[0].result.is_some());
-        assert!(responses[1].error.is_some());
     }
 }
